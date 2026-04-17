@@ -1,4 +1,3 @@
-// server.js - сервер для отправки push-уведомлений
 const express = require('express');
 const webPush = require('web-push');
 const { createClient } = require('@supabase/supabase-js');
@@ -20,21 +19,20 @@ const vapidKeys = {
 };
 
 webPush.setVapidDetails(
-    'mailto:wernerhans819@gmail.com',
+    'mailto:your-email@example.com',
     vapidKeys.publicKey,
     vapidKeys.privateKey
 );
 
 // Эндпоинт для отправки уведомления
 app.post('/api/send-notification', async (req, res) => {
-    const { userId, title, body, chatId, senderName } = req.body;
+    const { userId, title, body, chatId } = req.body;
     
     if (!userId) {
         return res.status(400).json({ error: 'userId is required' });
     }
     
     try {
-        // Получаем push-подписку пользователя
         const { data: subscriptionData, error } = await supabase
             .from('push_subscriptions')
             .select('subscription')
@@ -51,8 +49,6 @@ app.post('/api/send-notification', async (req, res) => {
         const payload = JSON.stringify({
             title: title || 'TES Messenger',
             body: body || 'Новое сообщение',
-            icon: 'https://your-domain.com/icon-192.png',
-            badge: 'https://your-domain.com/badge-72.png',
             data: { chatId: chatId, url: '/' },
             vibrate: [200, 100, 200],
             tag: 'message_' + Date.now(),
@@ -66,7 +62,6 @@ app.post('/api/send-notification', async (req, res) => {
     } catch (error) {
         console.error('Ошибка отправки:', error);
         
-        // Если подписка устарела (410), удаляем её
         if (error.statusCode === 410) {
             await supabase
                 .from('push_subscriptions')
@@ -76,30 +71,6 @@ app.post('/api/send-notification', async (req, res) => {
         }
         
         res.json({ success: false, error: error.message });
-    }
-});
-
-// Эндпоинт для сохранения подписки (альтернативный)
-app.post('/api/save-subscription', async (req, res) => {
-    const { userId, subscription } = req.body;
-    
-    if (!userId || !subscription) {
-        return res.status(400).json({ error: 'userId and subscription are required' });
-    }
-    
-    try {
-        await supabase
-            .from('push_subscriptions')
-            .upsert({
-                user_id: userId,
-                subscription: JSON.stringify(subscription),
-                updated_at: new Date().toISOString()
-            });
-        
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Ошибка сохранения подписки:', error);
-        res.status(500).json({ error: error.message });
     }
 });
 
